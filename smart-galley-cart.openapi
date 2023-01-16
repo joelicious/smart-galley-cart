@@ -1,0 +1,127 @@
+---
+openapi: 3.0.2
+info:
+  title: smart-galley-cart
+  version: 1.0.0
+  description: APIs that change or retrieve state from the Smart Galley Cart
+  contact:
+    name: Joseph Butler
+    url: https://joelicious.github.io/
+    email: joe@joelicio.us
+paths:
+  /cart/door/state:
+    summary: Retrieve the current state of the galley cart door.
+    description: "If either door is open, then open.  Close is when the both galley\
+      \ doors are closed."
+    get:
+      tags:
+      - cart
+      responses:
+        "200":
+          $ref: '#/components/responses/DoorState'
+      operationId: get-door-state
+  /cart/lights:
+    summary: A string of LED lights
+    description: LED string lights located inside the galley cart.
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LEDGridLights'
+        required: false
+      tags:
+      - cart
+      responses:
+        "200":
+          description: Success
+      operationId: change-cart-lights
+  /cart/sign:
+    summary: A grid of LED lights
+    description: A 16x16 grid of LED lights located outside the galley cart.
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LEDGridLights'
+      tags:
+      - cart
+      responses:
+        "200":
+          description: Success
+      operationId: change-cart-sign
+components:
+  schemas:
+    DoorState:
+      title: Root Type for DoorState
+      description: Data type to represent the state of the Door.
+      type: object
+      properties:
+        doorState:
+          enum:
+          - open
+          - closed
+          type: string
+      example:
+        doorState: closed
+    LEDStringLights:
+      title: Root Type for LEDStringLights
+      description: A string of LED lights
+      type: object
+      properties:
+        "on":
+          type: boolean
+        brightness:
+          format: int32
+          maximum: 255
+          minimum: 1
+          type: integer
+        colorOne:
+          $ref: '#/components/schemas/EnumColor'
+        colorTwo:
+          $ref: '#/components/schemas/EnumColor'
+      example:
+        "on": true
+        brightness: 50
+        colorOne: white
+        colorTwo: red
+    LEDGridLights:
+      title: Root Type for LEDGridLights
+      description: "A grid of LED lights, currently a 16x16 matrix."
+      type: object
+      properties:
+        "on":
+          type: boolean
+        brightness:
+          format: int32
+          maximum: 255
+          minimum: 1
+          type: integer
+        pattern:
+          enum:
+          - beer
+          - camel
+          - karavan
+          type: string
+      example:
+        "on": true
+        brightness: 50
+        pattern: karavan
+    EnumColor:
+      description: ""
+      enum:
+      - blue
+      - green
+      - red
+      - white
+      type: string
+  responses:
+    DoorState:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DoorState'
+      description: A type to convey the state of the galley cart door.
+    SuccessMessage:
+      description: A message to convey success.
