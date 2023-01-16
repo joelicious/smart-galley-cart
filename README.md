@@ -39,10 +39,10 @@ To execute the integration, the following command is run from the command line:
 
 In the test-data directory, there is a number of json payloads that can be used to change the light / sign patterns.
 
-`curl -d "@sign.json" -H "Content-Type: application/json" -X POST http://192.168.1.167:8080/cart/sign`
+`curl -d "@sign.json" -H "Content-Type: application/json" -X POST http://{IP_ADDRESS}:8080/cart/sign`
 
-`curl -d "@lights.json" -H "Content-Type: application/json" -X POST http://192.168.1.223:8080/cart/lights`
+`curl -d "@lights.json" -H "Content-Type: application/json" -X POST http://{IP_ADDRESS}:8080/cart/lights`
 
-`curl -d "@sign-off.json" -H "Content-Type: application/json" -X POST http://192.168.1.167:8080/cart/sign`
+`curl -d "@sign-off.json" -H "Content-Type: application/json" -X POST http://{IP_ADDRESS}:8080/cart/sign`
 
-``curl -d "@lights-off.json" -H "Content-Type: application/json" -X POST http://192.168.1.223:8080/cart/lights`
+`curl -d "@lights-off.json" -H "Content-Type: application/json" -X POST http://{IP_ADDRESS}:8080/cart/lights`
