@@ -8,7 +8,7 @@ While the overall poject has a number of other non-software components, for purp
 
 ![Smart Galley Cart Architecture](images/smart-galley-cart.drawio.png)
 
-This repository contains all the code for the Camel K Integration.  It presents a Camel Route that listens to MQTT events, as well
+This repository contains all the code for the Camel (yaml) Integration.  It presents a Camel Route that listens to MQTT events, as well
 as 3 Camel Routes that host 3 REST services that can modify the behavior of the Lights / Sign on the Galley Cart.  These changes
 are communicated via MQTT.
 
@@ -26,10 +26,10 @@ intend to implement the defined REST APIs.
 
 In addition to these Camel routes, an additional Camel route is created to listen to MQTT events coming from the ESP32 devices.
 
-Upon crafting the integration via the Camel Karavan designer, there is a resulting Camel K yaml file which is then ready to be
+Upon crafting the integration via the Camel Karavan designer, there is a resulting Camel yaml file which is then ready to be
 deployed in a kubernetes / OpenShift cluster. For testing or executing on smaller devices, you can also run the integration
 via Camel JBang (https://camel.apache.org/manual/camel-jbang.html) which allows for easy running of Camel routes by bundling
-them into a Quarkus runtime.
+them into a Quarkus (optionally SpringBoot) runtime.
 
 To execute the integration, the following command is run from the command line:
 

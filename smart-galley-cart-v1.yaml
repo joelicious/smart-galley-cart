@@ -1,633 +1,816 @@
-apiVersion: camel.apache.org/v1
-kind: Integration
-metadata:
-  name: smart-galley-cart-v1.yaml
-spec:
-  flows:
-    - restConfiguration:
-        corsHeaders:
-          - value: '*'
-            key: Access-Control-Allow-Origin
-        host: 192.168.1.167
-        port: '8080'
-        bindingMode: auto
+- restConfiguration:
+    corsHeaders:
+      - key: Access-Control-Allow-Origin
+        value: '*'
+    host: 192.168.1.167
+    port: '8080'
+    bindingMode: auto
+    enableCors: true
+- rest:
+    id: rest-41d3
+    get:
+      - id: get-door-state
+        path: /cart/door/state
+        to: direct:get-door-state
+        bindingMode: 'off'
+        produces: application/json
         enableCors: true
-    - rest:
-        post:
-          - id: change-cart-lights
-            path: /cart/lights
-            consumes: application/json
-            produces: application/json
-            to: direct:change-cart-lights
-            bindingMode: 'off'
-            enableCors: true
-          - id: change-cart-sign
-            path: /cart/sign
-            consumes: application/json
-            to: direct:change-cart-sign
-            bindingMode: 'off'
-            produces: application/json
-            enableCors: true
-        get:
-          - id: get-door-state
-            path: /cart/door/state
-            to: direct:get-door-state
-            bindingMode: 'off'
-            produces: application/json
-            enableCors: true
-    - route:
-        from:
-          uri: direct:get-door-state
-          steps:
-            - log:
-                message: GET cart door state
-            - setHeader:
-                name: CamelCaffeineKey
+    post:
+      - id: change-cart-lights
+        path: /cart/lights
+        consumes: application/json
+        produces: application/json
+        to: direct:change-cart-lights
+        bindingMode: 'off'
+        enableCors: true
+      - id: change-cart-sign
+        path: /cart/sign
+        consumes: application/json
+        to: direct:change-cart-sign
+        bindingMode: 'off'
+        produces: application/json
+        enableCors: true
+- route:
+    id: cartDoorStateRoute
+    from:
+      uri: direct:get-door-state
+      id: from-c562
+      description: Route to retrieve Cart Door State
+      steps:
+        - log:
+            message: GET cart door state
+            id: log-0fa7
+        - setHeader:
+            name: CamelCaffeineKey
+            id: setHeader-ee98
+            expression:
+              simple:
+                expression: doorState
+                id: simple-e722
+        - to:
+            uri: caffeine-cache:galleyCart
+            id: to-c89c
+            parameters:
+              action: GET
+              createCacheIfNotExist: true
+        - choice:
+            when:
+              - id: when-a996
                 expression:
                   simple:
-                    expression: doorState
-            - to:
-                uri: caffeine-cache:galleyCart
-                parameters:
-                  action: GET
-                  createCacheIfNotExist: true
-            - choice:
-                when:
-                  - expression:
+                    expression: ${body} == 'on'
+                    id: simple-078e
+                steps:
+                  - setBody:
+                      id: setBody-8191
+                      expression:
+                        simple:
+                          expression: '{"doorState":"open"}'
+                          id: simple-0444
+                  - setHeader:
+                      name: CamelHttpResponseCode
+                      id: setHeader-be28
+                      expression:
+                        simple:
+                          expression: '200'
+                          id: simple-2722
+              - id: when-d689
+                expression:
+                  simple:
+                    expression: ${body} == 'off'
+                    id: simple-ee40
+                steps:
+                  - setBody:
+                      id: setBody-a5c9
+                      expression:
+                        simple:
+                          expression: '{"doorState":"closed"}'
+                          id: simple-b295
+                  - setHeader:
+                      name: CamelHttpResponseCode
+                      id: setHeader-5a4a
+                      expression:
+                        simple:
+                          expression: '200'
+                          id: simple-a964
+            id: choice-5c96
+            otherwise:
+              id: otherwise-7337
+              steps:
+                - setHeader:
+                    name: CamelHttpResponseCode
+                    id: setHeader-895d
+                    expression:
                       simple:
-                        expression: ${body} == 'on'
-                    steps:
-                      - setBody:
-                          expression:
-                            simple:
-                              expression: '{"doorState":"open"}'
-                      - setHeader:
-                          name: CamelHttpResponseCode
-                          expression:
-                            simple:
-                              expression: '200'
-                  - expression:
+                        expression: '400'
+                        id: simple-2177
+                - setBody:
+                    id: setBody-e978
+                    expression:
                       simple:
-                        expression: ${body} == 'off'
-                    steps:
-                      - setBody:
-                          expression:
-                            simple:
-                              expression: '{"doorState":"closed"}'
-                      - setHeader:
-                          name: CamelHttpResponseCode
-                          expression:
-                            simple:
-                              expression: '200'
-                otherwise:
-                  steps:
-                    - setHeader:
-                        name: CamelHttpResponseCode
-                        expression:
-                          simple:
-                            expression: '400'
-                    - setBody:
-                        expression:
-                          simple:
-                            expression: '{"code":400,"message":"Unknown"}'
-        id: cartDoorStateRoute
-    - route:
-        from:
-          uri: direct:change-cart-lights
-          steps:
-            - log:
-                message: 'POST Cart Lights Body: ${body}'
-            - choice:
-                when:
-                  - expression:
-                      jsonpath:
-                        expression: $.[?(@['on'] == true)]
-                        suppressExceptions: true
-                    steps:
-                      - setHeader:
-                          name: led_brightness
+                        expression: '{"code":400,"message":"Unknown"}'
+                        id: simple-9fa9
+- route:
+    id: changeCartLightsRoute
+    from:
+      uri: direct:change-cart-lights
+      id: from-3924
+      steps:
+        - log:
+            message: 'POST Cart Lights Body: ${body}'
+            id: log-d130
+        - choice:
+            when:
+              - id: when-d24e
+                expression:
+                  jsonpath:
+                    expression: $.[?(@['on'] == true)]
+                    id: jsonpath-bbb3
+                    suppressExceptions: true
+                steps:
+                  - setHeader:
+                      name: led_brightness
+                      id: setHeader-fd0f
+                      expression:
+                        jsonpath:
+                          expression: '@[''brightness'']'
+                          id: jsonpath-fddf
+                  - choice:
+                      when:
+                        - id: when-34d2
                           expression:
                             jsonpath:
-                              expression: '@[''brightness'']'
-                      - choice:
-                          when:
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['colorOne'] == 'red')]
-                                  suppressExceptions: true
-                              steps:
-                                - setHeader:
-                                    name: colorOne
-                                    expression:
-                                      simple:
-                                        expression: 255,0,0
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['colorOne'] == 'white')]
-                                  suppressExceptions: true
-                              steps:
-                                - setHeader:
-                                    name: colorOne
-                                    expression:
-                                      simple:
-                                        expression: 255,255,255
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['colorOne'] == 'blue')]
-                                  suppressExceptions: true
-                              steps:
-                                - setHeader:
-                                    name: colorOne
-                                    expression:
-                                      simple:
-                                        expression: 0,255,0
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['colorOne'] == 'green')]
-                                  suppressExceptions: true
-                              steps:
-                                - setHeader:
-                                    name: colorOne
-                                    expression:
-                                      simple:
-                                        expression: 0,0,255
-                      - choice:
-                          when:
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['colorTwo'] == 'red')]
-                                  suppressExceptions: true
-                              steps:
-                                - setHeader:
-                                    name: colorTwo
-                                    expression:
-                                      simple:
-                                        expression: 255,0,0
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['colorTwo'] == 'white')]
-                                  suppressExceptions: true
-                              steps:
-                                - setHeader:
-                                    name: colorTwo
-                                    expression:
-                                      simple:
-                                        expression: 255,255,255
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['colorTwo'] == 'blue')]
-                                  suppressExceptions: true
-                              steps:
-                                - setHeader:
-                                    name: colorTwo
-                                    expression:
-                                      simple:
-                                        expression: 0,255,0
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['colorTwo'] == 'green')]
-                                  suppressExceptions: true
-                              steps:
-                                - setHeader:
-                                    name: colorTwo
-                                    expression:
-                                      simple:
-                                        expression: 0,0,255
-                      - setBody:
+                              expression: $.[?(@['colorOne'] == 'red')]
+                              id: jsonpath-83aa
+                              suppressExceptions: true
+                          steps:
+                            - setHeader:
+                                name: colorOne
+                                id: setHeader-446d
+                                expression:
+                                  simple:
+                                    expression: 255,0,0
+                                    id: simple-720a
+                        - id: when-cedf
                           expression:
-                            simple:
-                              expression: >-
-                                {"on":true, "bri":${header.led_brightness},
-                                "seg":[{"col":[[${header.colorOne}],[${header.colorTwo}],[0,0,0]],"fx":37]}
-                      - to:
-                          uri: paho:wled/{{mqtt.topic.lights}}/api
-                          parameters:
-                            brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                            retained: true
-                      - setHeader:
-                          name: CamelHttpResponseCode
+                            jsonpath:
+                              expression: $.[?(@['colorOne'] == 'white')]
+                              id: jsonpath-61f4
+                              suppressExceptions: true
+                          steps:
+                            - setHeader:
+                                name: colorOne
+                                id: setHeader-a326
+                                expression:
+                                  simple:
+                                    expression: 255,255,255
+                                    id: simple-237c
+                        - id: when-e522
                           expression:
-                            simple:
-                              expression: '200'
-                      - setBody:
+                            jsonpath:
+                              expression: $.[?(@['colorOne'] == 'blue')]
+                              id: jsonpath-d793
+                              suppressExceptions: true
+                          steps:
+                            - setHeader:
+                                name: colorOne
+                                id: setHeader-3ada
+                                expression:
+                                  simple:
+                                    expression: 0,255,0
+                                    id: simple-2b87
+                        - id: when-865a
                           expression:
-                            simple:
-                              expression: '{"code":200,"message":"SUCCESS"}'
-                  - expression:
-                      jsonpath:
-                        expression: $.[?(@['on'] == false)]
-                        suppressExceptions: true
-                    steps:
-                      - setBody:
+                            jsonpath:
+                              expression: $.[?(@['colorOne'] == 'green')]
+                              id: jsonpath-2ffa
+                              suppressExceptions: true
+                          steps:
+                            - setHeader:
+                                name: colorOne
+                                id: setHeader-d829
+                                expression:
+                                  simple:
+                                    expression: 0,0,255
+                                    id: simple-f38f
+                      id: choice-f8e2
+                  - choice:
+                      when:
+                        - id: when-0a93
                           expression:
-                            simple:
-                              expression: T=0
-                      - to:
-                          uri: paho:wled/{{mqtt.topic.lights}}/api
-                          parameters:
-                            brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                            retained: true
-                      - setHeader:
-                          name: CamelHttpResponseCode
+                            jsonpath:
+                              expression: $.[?(@['colorTwo'] == 'red')]
+                              id: jsonpath-0127
+                              suppressExceptions: true
+                          steps:
+                            - setHeader:
+                                name: colorTwo
+                                id: setHeader-e39d
+                                expression:
+                                  simple:
+                                    expression: 255,0,0
+                                    id: simple-80bc
+                        - id: when-3efb
                           expression:
-                            simple:
-                              expression: '200'
-                      - setBody:
+                            jsonpath:
+                              expression: $.[?(@['colorTwo'] == 'white')]
+                              id: jsonpath-9e30
+                              suppressExceptions: true
+                          steps:
+                            - setHeader:
+                                name: colorTwo
+                                id: setHeader-4a92
+                                expression:
+                                  simple:
+                                    expression: 255,255,255
+                                    id: simple-c6cd
+                        - id: when-e415
                           expression:
-                            simple:
-                              expression: '{"code":200,"message":"SUCCESS"}'
-                otherwise:
-                  steps:
-                    - setHeader:
-                        name: CamelHttpResponseCode
-                        expression:
-                          simple:
-                            expression: '400'
-                    - setBody:
-                        expression:
-                          simple:
-                            expression: '{"code":400,"message":"Invalid state"}'
-        id: changeCartLightsRoute
-    - route:
-        from:
-          uri: direct:change-cart-sign
-          steps:
-            - log:
-                message: 'POST Cart Sign Body: ${body}'
-            - choice:
-                when:
-                  - expression:
-                      jsonpath:
-                        expression: $.[?(@['on'] == true)]
-                        suppressExceptions: true
-                    steps:
-                      - log:
-                          message: Sign On
-                      - choice:
-                          when:
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['pattern'] == 'karavan')]
-                                  suppressExceptions: true
-                              steps:
-                                - log:
-                                    message: Sign Karavan
-                                - setHeader:
-                                    name: led_brightness
-                                    expression:
-                                      jsonpath:
-                                        expression: '@[''brightness'']'
-                                - setBody:
-                                    expression:
-                                      simple:
-                                        expression: >-
-                                          {"on":true,
-                                          "bri":${header.led_brightness},
-                                          "seg":{"i":[
-                                                  0,52,[142,169,219], 52,54,[48,84,150], 54,56,[180,198,231], 56,[142,169,219], 57,[255,255,255], 58,66,[142,169,219], 66,71,[255,255,255], 71,73,[180,198,231], 73,77,[48,84,150], 77,82,[142,169,219], 82,88,[48,84,150], 88,95,[255,255,255], 95,99,[142,169,219], 99,105,[255,255,255], 105,111,[48,84,150], 111,[142,169,219], 112,118,[48,84,150], 118,124,[255,255,255], 124,127,[180,198,231], 127,[142,169,219], 128,133,[180,198,231], 133,139,[255,255,255], 139,143,[48,84,150], 143,154,[255,255,255], 154,167,[180,198,231], 167,184,[255,255,255], 184,[48,84,150], 185,199,[180,198,231], 199,201,[48,84,150], 201,213,[255,255,255], 213,217,[48,84,150], 217,232,[180,198,231], 232,237,[48,84,150], 237,241,[255,255,255], 241,248,[48,84,150], 248,256,[180,198,231]
-                                                ]}}
-                                - to:
-                                    uri: paho:wled/{{mqtt.topic.sign}}/api
-                                    parameters:
-                                      brokerUrl: >-
-                                        tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                                      retained: true
-                                - setHeader:
-                                    name: CamelHttpResponseCode
-                                    expression:
-                                      simple:
-                                        expression: '200'
-                                - setBody:
-                                    expression:
-                                      simple:
-                                        expression: '{"code":200,"message":"SUCCESS"}'
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['pattern'] == 'camel')]
-                                  suppressExceptions: true
-                              steps:
-                                - log:
-                                    message: Sign Camel
-                                - setHeader:
-                                    name: led_brightness
-                                    expression:
-                                      jsonpath:
-                                        expression: '@[''brightness'']'
-                                - setBody:
-                                    expression:
-                                      simple:
-                                        expression: >-
-                                          {"on":true,
-                                          "bri":${header.led_brightness},
-                                          "seg":{"i":[
-                                                  0,52,[237,125,49], 52,54,[131,60,12], 54,56,[252,228,214], 56,[237,125,49], 57,[255,255,255], 58,66,[237,125,49], 66,71,[255,255,255], 71,73,[252,228,214], 73,77,[131,60,12], 77,82,[237,125,49], 82,88,[131,60,12], 88,95,[255,255,255], 95,99,[237,125,49], 99,105,[255,255,255], 105,111,[131,60,12], 111,[237,125,49], 112,118,[131,60,12], 118,124,[255,255,255], 124,127,[252,228,214], 127,[237,125,49], 128,133,[252,228,214], 133,139,[255,255,255], 139,143,[131,60,12], 143,154,[255,255,255], 154,167,[252,228,214], 167,184,[255,255,255], 184,[131,60,12], 185,199,[252,228,214], 199,201,[131,60,12], 201,213,[255,255,255], 213,217,[131,60,12], 217,232,[252,228,214], 232,237,[131,60,12], 237,241,[255,255,255], 241,248,[131,60,12], 248,256,[252,228,214]
-                                                ]}}
-                                - to:
-                                    uri: paho:wled/{{mqtt.topic.sign}}/api
-                                    parameters:
-                                      brokerUrl: >-
-                                        tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                                      retained: true
-                                - setHeader:
-                                    name: CamelHttpResponseCode
-                                    expression:
-                                      simple:
-                                        expression: '200'
-                                - setBody:
-                                    expression:
-                                      simple:
-                                        expression: '{"code":200,"message":"SUCCESS"}'
-                            - expression:
-                                jsonpath:
-                                  expression: $.[?(@['pattern'] == 'beer')]
-                                  suppressExceptions: true
-                              steps:
-                                - log:
-                                    message: Beer
-                                - setHeader:
-                                    name: led_brightness
-                                    expression:
-                                      jsonpath:
-                                        expression: '@[''brightness'']'
-                                - setHeader:
-                                    name: CamelCaffeineKey
-                                    expression:
-                                      simple:
-                                        expression: doorState
-                                - to:
-                                    uri: caffeine-cache:galleyCart
-                                    parameters:
-                                      action: GET
-                                      createCacheIfNotExist: true
-                                - log:
-                                    message: doorState ${body}
-                                - choice:
-                                    when:
-                                      - expression:
-                                          simple:
-                                            expression: ${body} == 'on'
-                                        steps:
-                                          - log:
-                                              message: Full Beer
-                                          - setBody:
-                                              expression:
-                                                simple:
-                                                  expression: T=0
-                                          - to:
-                                              uri: paho:wled/{{mqtt.topic.sign}}/api
-                                              parameters:
-                                                brokerUrl: >-
-                                                  tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                                                retained: true
-                                          - setBody:
-                                              expression:
-                                                simple:
-                                                  expression: >-
-                                                    {"on":true, "bri":50, "seg":{"i":[
-                                                    0,53,[255,217,102], 53,59,[255,255,255],
-                                                    59,68,[255,217,102],
-                                                    68,76,[255,255,255],
-                                                    76,84,[255,217,102],
-                                                    84,93,[255,255,255],
-                                                    93,100,[255,217,102],
-                                                    101,106,[255,255,255],
-                                                    106,[255,217,102],
-                                                    108,114,[255,217,102],
-                                                    117,[255,217,102], 118,[191,143,0],
-                                                    119,[255,217,102],
-                                                    120,122,[255,255,255],
-                                                    122,[255,217,102],
-                                                    124,132,[255,217,102],
-                                                    133,[255,217,102], 134,[191,143,0],
-                                                    135,[255,255,255], 136,[255,217,102],
-                                                    137,[191,143,0], 138,[255,217,102],
-                                                    140,[255,217,102],
-                                                    142,146,[255,217,102],
-                                                    147,[255,217,102], 149,[255,217,102],
-                                                    150,[191,143,0], 151,[255,217,102],
-                                                    152,[255,255,255], 153,[191,143,0],
-                                                    154,[255,217,102],
-                                                    156,164,[255,217,102],
-                                                    165,[255,217,102], 166,[191,143,0],
-                                                    167,169,[255,217,102], 169,[191,143,0],
-                                                    170,[255,217,102], 172,[255,217,102],
-                                                    174,179,[255,217,102],
-                                                    181,[255,217,102], 182,[191,143,0],
-                                                    183,185,[255,217,102], 185,[191,143,0],
-                                                    186,[255,217,102],
-                                                    188,196,[255,217,102],
-                                                    197,203,[191,143,0],
-                                                    204,213,[255,217,102],
-                                                    219,256,[255,217,102]]}}
-                                          - to:
-                                              uri: paho:wled/{{mqtt.topic.sign}}/api
-                                              parameters:
-                                                brokerUrl: >-
-                                                  tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                                                retained: true
-                                      - expression:
-                                          simple:
-                                            expression: ${body} == 'off'
-                                        steps:
-                                          - log:
-                                              message: Empty Beer
-                                          - setBody:
-                                              expression:
-                                                simple:
-                                                  expression: T=0
-                                          - to:
-                                              uri: paho:wled/{{mqtt.topic.sign}}/api
-                                              parameters:
-                                                brokerUrl: >-
-                                                  tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                                                retained: true
-                                          - setBody:
-                                              expression:
-                                                simple:
-                                                  expression: >-
-                                                    {"on":true, "bri":50, "seg":{"i":[
-                                                    0,100,[255,217,102],
-                                                    101,107,[255,217,102],
-                                                    108,114,[255,217,102],
-                                                    117,123,[255,217,102],
-                                                    124,132,[255,217,102],
-                                                    133,139,[255,217,102],
-                                                    140,[255,217,102],
-                                                    142,146,[255,217,102],
-                                                    147,[255,217,102],
-                                                    149,155,[255,217,102],
-                                                    156,164,[255,217,102],
-                                                    165,171,[255,217,102],
-                                                    172,[255,217,102],
-                                                    174,179,[255,217,102],
-                                                    181,187,[255,217,102],
-                                                    188,196,[255,217,102],
-                                                    197,199,[191,143,0],
-                                                    199,202,[255,255,255], 202,[191,143,0],
-                                                    204,213,[255,217,102],
-                                                    219,256,[255,217,102]
-                                                          ]}}
-                                          - to:
-                                              uri: paho:wled/{{mqtt.topic.sign}}/api
-                                              parameters:
-                                                brokerUrl: >-
-                                                  tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                                                retained: true
-                                    precondition: false
-                                - setHeader:
-                                    name: CamelHttpResponseCode
-                                    expression:
-                                      simple:
-                                        expression: '200'
-                                - setBody:
-                                    expression:
-                                      simple:
-                                        expression: '{"code":200,"message":"SUCCESS"}'
-                  - expression:
-                      jsonpath:
-                        expression: $.[?(@['on'] == false)]
-                        suppressExceptions: true
-                    steps:
-                      - log:
-                          message: Sign Off
-                      - setBody:
+                            jsonpath:
+                              expression: $.[?(@['colorTwo'] == 'blue')]
+                              id: jsonpath-bd5f
+                              suppressExceptions: true
+                          steps:
+                            - setHeader:
+                                name: colorTwo
+                                id: setHeader-946e
+                                expression:
+                                  simple:
+                                    expression: 0,255,0
+                                    id: simple-d6a2
+                        - id: when-abac
                           expression:
-                            simple:
-                              expression: T=0
-                      - to:
-                          uri: paho:wled/{{mqtt.topic.sign}}/api
-                          parameters:
-                            brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                            retained: true
-                      - setHeader:
-                          name: CamelHttpResponseCode
+                            jsonpath:
+                              expression: $.[?(@['colorTwo'] == 'green')]
+                              id: jsonpath-0a53
+                              suppressExceptions: true
+                          steps:
+                            - setHeader:
+                                name: colorTwo
+                                id: setHeader-1cad
+                                expression:
+                                  simple:
+                                    expression: 0,0,255
+                                    id: simple-29fd
+                      id: choice-5bec
+                  - setBody:
+                      id: setBody-f95e
+                      expression:
+                        simple:
+                          expression: >-
+                            {"on":true, "bri":${header.led_brightness},
+                            "seg":[{"col":[[${header.colorOne}],[${header.colorTwo}],[0,0,0]],"fx":37]}
+                          id: simple-9f0c
+                  - to:
+                      uri: paho:wled/{{mqtt.topic.lights}}/api
+                      id: to-98b1
+                      parameters:
+                        brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                        retained: true
+                  - setHeader:
+                      name: CamelHttpResponseCode
+                      id: setHeader-c7cb
+                      expression:
+                        simple:
+                          expression: '200'
+                          id: simple-6a7a
+                  - setBody:
+                      id: setBody-1d91
+                      expression:
+                        simple:
+                          expression: '{"code":200,"message":"SUCCESS"}'
+                          id: simple-3d2a
+              - id: when-4c96
+                expression:
+                  jsonpath:
+                    expression: $.[?(@['on'] == false)]
+                    id: jsonpath-b02c
+                    suppressExceptions: true
+                steps:
+                  - setBody:
+                      id: setBody-8176
+                      expression:
+                        simple:
+                          expression: T=0
+                          id: simple-bb91
+                  - to:
+                      uri: paho:wled/{{mqtt.topic.lights}}/api
+                      id: to-1a9a
+                      parameters:
+                        brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                        retained: true
+                  - setHeader:
+                      name: CamelHttpResponseCode
+                      id: setHeader-5e82
+                      expression:
+                        simple:
+                          expression: '200'
+                          id: simple-f619
+                  - setBody:
+                      id: setBody-494f
+                      expression:
+                        simple:
+                          expression: '{"code":200,"message":"SUCCESS"}'
+                          id: simple-abbf
+            id: choice-2920
+            otherwise:
+              id: otherwise-161a
+              steps:
+                - setHeader:
+                    name: CamelHttpResponseCode
+                    id: setHeader-ffbb
+                    expression:
+                      simple:
+                        expression: '400'
+                        id: simple-e819
+                - setBody:
+                    id: setBody-8d0d
+                    expression:
+                      simple:
+                        expression: '{"code":400,"message":"Invalid state"}'
+                        id: simple-9f90
+- route:
+    id: changeCartSignRoute
+    from:
+      uri: direct:change-cart-sign
+      id: from-c89c
+      steps:
+        - log:
+            message: 'POST Cart Sign Body: ${body}'
+            id: log-e093
+        - choice:
+            when:
+              - id: when-288f
+                expression:
+                  jsonpath:
+                    expression: $.[?(@['on'] == true)]
+                    id: jsonpath-e2df
+                    suppressExceptions: true
+                steps:
+                  - log:
+                      message: Sign On
+                      id: log-0327
+                  - choice:
+                      when:
+                        - id: when-247c
                           expression:
-                            simple:
-                              expression: '200'
-                      - setBody:
+                            jsonpath:
+                              expression: $.[?(@['pattern'] == 'karavan')]
+                              id: jsonpath-7cd3
+                              suppressExceptions: true
+                          steps:
+                            - log:
+                                message: Sign Karavan
+                                id: log-d008
+                            - setHeader:
+                                name: led_brightness
+                                id: setHeader-4ef9
+                                expression:
+                                  jsonpath:
+                                    expression: '@[''brightness'']'
+                                    id: jsonpath-a4c8
+                            - setBody:
+                                id: setBody-2eaa
+                                expression:
+                                  simple:
+                                    expression: >-
+                                      {"on":true,
+                                      "bri":${header.led_brightness},
+                                      "seg":{"i":[
+                                              0,52,[142,169,219], 52,54,[48,84,150], 54,56,[180,198,231], 56,[142,169,219], 57,[255,255,255], 58,66,[142,169,219], 66,71,[255,255,255], 71,73,[180,198,231], 73,77,[48,84,150], 77,82,[142,169,219], 82,88,[48,84,150], 88,95,[255,255,255], 95,99,[142,169,219], 99,105,[255,255,255], 105,111,[48,84,150], 111,[142,169,219], 112,118,[48,84,150], 118,124,[255,255,255], 124,127,[180,198,231], 127,[142,169,219], 128,133,[180,198,231], 133,139,[255,255,255], 139,143,[48,84,150], 143,154,[255,255,255], 154,167,[180,198,231], 167,184,[255,255,255], 184,[48,84,150], 185,199,[180,198,231], 199,201,[48,84,150], 201,213,[255,255,255], 213,217,[48,84,150], 217,232,[180,198,231], 232,237,[48,84,150], 237,241,[255,255,255], 241,248,[48,84,150], 248,256,[180,198,231]
+                                            ]}}
+                                    id: simple-b7b2
+                            - to:
+                                uri: paho:wled/{{mqtt.topic.sign}}/api
+                                id: to-caed
+                                parameters:
+                                  brokerUrl: >-
+                                    tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                                  retained: true
+                            - setHeader:
+                                name: CamelHttpResponseCode
+                                id: setHeader-4ce2
+                                expression:
+                                  simple:
+                                    expression: '200'
+                                    id: simple-1935
+                            - setBody:
+                                id: setBody-399e
+                                expression:
+                                  simple:
+                                    expression: '{"code":200,"message":"SUCCESS"}'
+                                    id: simple-6780
+                        - id: when-f54c
                           expression:
-                            simple:
-                              expression: '{"code":200,"message":"SUCCESS"}'
-                otherwise:
-                  steps:
-                    - setHeader:
-                        name: CamelHttpResponseCode
-                        expression:
-                          simple:
-                            expression: '400'
-                    - setBody:
-                        expression:
-                          simple:
-                            expression: '{"code":400,"message":"Invalid state"}'
-        id: changeCartSignRoute
-    - route:
-        from:
-          uri: paho:wled/{{mqtt.topic.lights}}/button/1
-          steps:
-            - log:
-                message: Button pressed ${body}
-            - setHeader:
-                name: CamelCaffeineKey
+                            jsonpath:
+                              expression: $.[?(@['pattern'] == 'camel')]
+                              id: jsonpath-ec7f
+                              suppressExceptions: true
+                          steps:
+                            - log:
+                                message: Sign Camel
+                                id: log-81cc
+                            - setHeader:
+                                name: led_brightness
+                                id: setHeader-3894
+                                expression:
+                                  jsonpath:
+                                    expression: '@[''brightness'']'
+                                    id: jsonpath-ebb9
+                            - setBody:
+                                id: setBody-9622
+                                expression:
+                                  simple:
+                                    expression: >-
+                                      {"on":true,
+                                      "bri":${header.led_brightness},
+                                      "seg":{"i":[
+                                              0,52,[237,125,49], 52,54,[131,60,12], 54,56,[252,228,214], 56,[237,125,49], 57,[255,255,255], 58,66,[237,125,49], 66,71,[255,255,255], 71,73,[252,228,214], 73,77,[131,60,12], 77,82,[237,125,49], 82,88,[131,60,12], 88,95,[255,255,255], 95,99,[237,125,49], 99,105,[255,255,255], 105,111,[131,60,12], 111,[237,125,49], 112,118,[131,60,12], 118,124,[255,255,255], 124,127,[252,228,214], 127,[237,125,49], 128,133,[252,228,214], 133,139,[255,255,255], 139,143,[131,60,12], 143,154,[255,255,255], 154,167,[252,228,214], 167,184,[255,255,255], 184,[131,60,12], 185,199,[252,228,214], 199,201,[131,60,12], 201,213,[255,255,255], 213,217,[131,60,12], 217,232,[252,228,214], 232,237,[131,60,12], 237,241,[255,255,255], 241,248,[131,60,12], 248,256,[252,228,214]
+                                            ]}}
+                                    id: simple-3ed0
+                            - to:
+                                uri: paho:wled/{{mqtt.topic.sign}}/api
+                                id: to-aa15
+                                parameters:
+                                  brokerUrl: >-
+                                    tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                                  retained: true
+                            - setHeader:
+                                name: CamelHttpResponseCode
+                                id: setHeader-029f
+                                expression:
+                                  simple:
+                                    expression: '200'
+                                    id: simple-7bb0
+                            - setBody:
+                                id: setBody-9bb4
+                                expression:
+                                  simple:
+                                    expression: '{"code":200,"message":"SUCCESS"}'
+                                    id: simple-8686
+                        - id: when-4b43
+                          expression:
+                            jsonpath:
+                              expression: $.[?(@['pattern'] == 'beer')]
+                              id: jsonpath-4646
+                              suppressExceptions: true
+                          steps:
+                            - log:
+                                message: Beer
+                                id: log-0a27
+                            - setHeader:
+                                name: led_brightness
+                                id: setHeader-415a
+                                expression:
+                                  jsonpath:
+                                    expression: '@[''brightness'']'
+                                    id: jsonpath-ecca
+                            - setHeader:
+                                name: CamelCaffeineKey
+                                id: setHeader-527f
+                                expression:
+                                  simple:
+                                    expression: doorState
+                                    id: simple-4b84
+                            - to:
+                                uri: caffeine-cache:galleyCart
+                                id: to-baa9
+                                parameters:
+                                  action: GET
+                                  createCacheIfNotExist: true
+                            - log:
+                                message: doorState ${body}
+                                id: log-e728
+                            - choice:
+                                when:
+                                  - id: when-2656
+                                    expression:
+                                      simple:
+                                        expression: ${body} == 'on'
+                                        id: simple-05c5
+                                    steps:
+                                      - log:
+                                          message: Full Beer
+                                          id: log-cf78
+                                      - setBody:
+                                          id: setBody-bb66
+                                          expression:
+                                            simple:
+                                              expression: T=0
+                                              id: simple-4045
+                                      - to:
+                                          uri: paho:wled/{{mqtt.topic.sign}}/api
+                                          id: to-f7c7
+                                          parameters:
+                                            brokerUrl: >-
+                                              tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                                            retained: true
+                                      - setBody:
+                                          id: setBody-c3fc
+                                          expression:
+                                            simple:
+                                              expression: >-
+                                                {"on":true, "bri":50, "seg":{"i":[
+                                                0,53,[255,217,102], 53,59,[255,255,255],
+                                                59,68,[255,217,102],
+                                                68,76,[255,255,255],
+                                                76,84,[255,217,102],
+                                                84,93,[255,255,255],
+                                                93,100,[255,217,102],
+                                                101,106,[255,255,255],
+                                                106,[255,217,102],
+                                                108,114,[255,217,102],
+                                                117,[255,217,102], 118,[191,143,0],
+                                                119,[255,217,102],
+                                                120,122,[255,255,255],
+                                                122,[255,217,102],
+                                                124,132,[255,217,102],
+                                                133,[255,217,102], 134,[191,143,0],
+                                                135,[255,255,255], 136,[255,217,102],
+                                                137,[191,143,0], 138,[255,217,102],
+                                                140,[255,217,102],
+                                                142,146,[255,217,102],
+                                                147,[255,217,102], 149,[255,217,102],
+                                                150,[191,143,0], 151,[255,217,102],
+                                                152,[255,255,255], 153,[191,143,0],
+                                                154,[255,217,102],
+                                                156,164,[255,217,102],
+                                                165,[255,217,102], 166,[191,143,0],
+                                                167,169,[255,217,102], 169,[191,143,0],
+                                                170,[255,217,102], 172,[255,217,102],
+                                                174,179,[255,217,102],
+                                                181,[255,217,102], 182,[191,143,0],
+                                                183,185,[255,217,102], 185,[191,143,0],
+                                                186,[255,217,102],
+                                                188,196,[255,217,102],
+                                                197,203,[191,143,0],
+                                                204,213,[255,217,102],
+                                                219,256,[255,217,102]]}}
+                                              id: simple-1be3
+                                      - to:
+                                          uri: paho:wled/{{mqtt.topic.sign}}/api
+                                          id: to-3b58
+                                          parameters:
+                                            brokerUrl: >-
+                                              tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                                            retained: true
+                                  - id: when-40d2
+                                    expression:
+                                      simple:
+                                        expression: ${body} == 'off'
+                                        id: simple-c391
+                                    steps:
+                                      - log:
+                                          message: Empty Beer
+                                          id: log-e249
+                                      - setBody:
+                                          id: setBody-69ac
+                                          expression:
+                                            simple:
+                                              expression: T=0
+                                              id: simple-0517
+                                      - to:
+                                          uri: paho:wled/{{mqtt.topic.sign}}/api
+                                          id: to-6dd6
+                                          parameters:
+                                            brokerUrl: >-
+                                              tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                                            retained: true
+                                      - setBody:
+                                          id: setBody-1bc6
+                                          expression:
+                                            simple:
+                                              expression: >-
+                                                {"on":true, "bri":50, "seg":{"i":[
+                                                0,100,[255,217,102],
+                                                101,107,[255,217,102],
+                                                108,114,[255,217,102],
+                                                117,123,[255,217,102],
+                                                124,132,[255,217,102],
+                                                133,139,[255,217,102],
+                                                140,[255,217,102],
+                                                142,146,[255,217,102],
+                                                147,[255,217,102],
+                                                149,155,[255,217,102],
+                                                156,164,[255,217,102],
+                                                165,171,[255,217,102],
+                                                172,[255,217,102],
+                                                174,179,[255,217,102],
+                                                181,187,[255,217,102],
+                                                188,196,[255,217,102],
+                                                197,199,[191,143,0],
+                                                199,202,[255,255,255], 202,[191,143,0],
+                                                204,213,[255,217,102],
+                                                219,256,[255,217,102]
+                                                      ]}}
+                                              id: simple-6cfe
+                                      - to:
+                                          uri: paho:wled/{{mqtt.topic.sign}}/api
+                                          id: to-72bd
+                                          parameters:
+                                            brokerUrl: >-
+                                              tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                                            retained: true
+                                id: choice-583f
+                                precondition: false
+                            - setHeader:
+                                name: CamelHttpResponseCode
+                                id: setHeader-f092
+                                expression:
+                                  simple:
+                                    expression: '200'
+                                    id: simple-73f4
+                            - setBody:
+                                id: setBody-d343
+                                expression:
+                                  simple:
+                                    expression: '{"code":200,"message":"SUCCESS"}'
+                                    id: simple-5efe
+                      id: choice-1fdc
+              - id: when-278b
+                expression:
+                  jsonpath:
+                    expression: $.[?(@['on'] == false)]
+                    id: jsonpath-bfc2
+                    suppressExceptions: true
+                steps:
+                  - log:
+                      message: Sign Off
+                      id: log-edcb
+                  - setBody:
+                      id: setBody-e331
+                      expression:
+                        simple:
+                          expression: T=0
+                          id: simple-619b
+                  - to:
+                      uri: paho:wled/{{mqtt.topic.sign}}/api
+                      id: to-e02c
+                      parameters:
+                        brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                        retained: true
+                  - setHeader:
+                      name: CamelHttpResponseCode
+                      id: setHeader-c7e3
+                      expression:
+                        simple:
+                          expression: '200'
+                          id: simple-ee40
+                  - setBody:
+                      id: setBody-5fda
+                      expression:
+                        simple:
+                          expression: '{"code":200,"message":"SUCCESS"}'
+                          id: simple-1f99
+            id: choice-6d3f
+            otherwise:
+              id: otherwise-2282
+              steps:
+                - setHeader:
+                    name: CamelHttpResponseCode
+                    id: setHeader-5083
+                    expression:
+                      simple:
+                        expression: '400'
+                        id: simple-0ae8
+                - setBody:
+                    id: setBody-fad1
+                    expression:
+                      simple:
+                        expression: '{"code":400,"message":"Invalid state"}'
+                        id: simple-7f7a
+- route:
+    id: mqttSwitchEvents
+    from:
+      uri: paho:wled/{{mqtt.topic.lights}}/button/1
+      id: from-39f3
+      parameters:
+        brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+        password: joe
+        userName: joe
+        retained: true
+      steps:
+        - log:
+            message: Button pressed ${body}
+            id: log-e301
+        - setHeader:
+            name: CamelCaffeineKey
+            id: setHeader-6763
+            expression:
+              simple:
+                expression: doorState
+                id: simple-565e
+        - to:
+            uri: caffeine-cache:galleyCart
+            id: to-3dea
+            parameters:
+              action: PUT
+              createCacheIfNotExist: true
+        - choice:
+            when:
+              - id: when-e476
                 expression:
                   simple:
-                    expression: doorState
-            - to:
-                uri: caffeine-cache:galleyCart
-                parameters:
-                  action: PUT
-                  createCacheIfNotExist: true
-            - choice:
-                when:
-                  - expression:
-                      simple:
-                        expression: ${body} == 'on'
-                    steps:
-                      - log:
-                          message: Full Beer
-                      - setBody:
-                          expression:
-                            simple:
-                              expression: T=0
-                      - to:
-                          uri: paho:wled/{{mqtt.topic.sign}}/api
-                          parameters:
-                            brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                            retained: true
-                      - setBody:
-                          expression:
-                            simple:
-                              expression: >-
-                                {"on":true, "bri":50, "seg":{"i":[
-                                0,53,[255,217,102], 53,59,[255,255,255],
-                                59,68,[255,217,102], 68,76,[255,255,255],
-                                76,84,[255,217,102], 84,93,[255,255,255],
-                                93,100,[255,217,102], 101,106,[255,255,255],
-                                106,[255,217,102], 108,114,[255,217,102],
-                                117,[255,217,102], 118,[191,143,0],
-                                119,[255,217,102], 120,122,[255,255,255],
-                                122,[255,217,102], 124,132,[255,217,102],
-                                133,[255,217,102], 134,[191,143,0],
-                                135,[255,255,255], 136,[255,217,102],
-                                137,[191,143,0], 138,[255,217,102],
-                                140,[255,217,102], 142,146,[255,217,102],
-                                147,[255,217,102], 149,[255,217,102],
-                                150,[191,143,0], 151,[255,217,102],
-                                152,[255,255,255], 153,[191,143,0],
-                                154,[255,217,102], 156,164,[255,217,102],
-                                165,[255,217,102], 166,[191,143,0],
-                                167,169,[255,217,102], 169,[191,143,0],
-                                170,[255,217,102], 172,[255,217,102],
-                                174,179,[255,217,102], 181,[255,217,102],
-                                182,[191,143,0], 183,185,[255,217,102],
-                                185,[191,143,0], 186,[255,217,102],
-                                188,196,[255,217,102], 197,203,[191,143,0],
-                                204,213,[255,217,102], 219,256,[255,217,102]]}}
-                      - to:
-                          uri: paho:wled/{{mqtt.topic.sign}}/api
-                          parameters:
-                            brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                            retained: true
-                  - expression:
-                      simple:
-                        expression: ${body} == 'off'
-                    steps:
-                      - log:
-                          message: Empty Beer
-                      - setBody:
-                          expression:
-                            simple:
-                              expression: T=0
-                      - to:
-                          uri: paho:wled/{{mqtt.topic.sign}}/api
-                          parameters:
-                            brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                            retained: true
-                      - setBody:
-                          expression:
-                            simple:
-                              expression: >-
-                                {"on":true, "bri":50, "seg":{"i":[
-                                0,100,[255,217,102], 101,107,[255,217,102],
-                                108,114,[255,217,102], 117,123,[255,217,102],
-                                124,132,[255,217,102], 133,139,[255,217,102],
-                                140,[255,217,102], 142,146,[255,217,102],
-                                147,[255,217,102], 149,155,[255,217,102],
-                                156,164,[255,217,102], 165,171,[255,217,102],
-                                172,[255,217,102], 174,179,[255,217,102],
-                                181,187,[255,217,102], 188,196,[255,217,102],
-                                197,199,[191,143,0], 199,202,[255,255,255],
-                                202,[191,143,0], 204,213,[255,217,102],
-                                219,256,[255,217,102]
-                                      ]}}
-                      - to:
-                          uri: paho:wled/{{mqtt.topic.sign}}/api
-                          parameters:
-                            brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-                            retained: true
-                precondition: false
-          parameters:
-            brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
-            password: joe
-            userName: joe
-            retained: true
-        id: mqttSwitchEvents
+                    expression: ${body} == 'on'
+                    id: simple-6f17
+                steps:
+                  - log:
+                      message: Full Beer
+                      id: log-f26b
+                  - setBody:
+                      id: setBody-2243
+                      expression:
+                        simple:
+                          expression: T=0
+                          id: simple-c1ad
+                  - to:
+                      uri: paho:wled/{{mqtt.topic.sign}}/api
+                      id: to-4197
+                      parameters:
+                        brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                        retained: true
+                  - setBody:
+                      id: setBody-66ff
+                      expression:
+                        simple:
+                          expression: >-
+                            {"on":true, "bri":50, "seg":{"i":[
+                            0,53,[255,217,102], 53,59,[255,255,255],
+                            59,68,[255,217,102], 68,76,[255,255,255],
+                            76,84,[255,217,102], 84,93,[255,255,255],
+                            93,100,[255,217,102], 101,106,[255,255,255],
+                            106,[255,217,102], 108,114,[255,217,102],
+                            117,[255,217,102], 118,[191,143,0],
+                            119,[255,217,102], 120,122,[255,255,255],
+                            122,[255,217,102], 124,132,[255,217,102],
+                            133,[255,217,102], 134,[191,143,0],
+                            135,[255,255,255], 136,[255,217,102],
+                            137,[191,143,0], 138,[255,217,102],
+                            140,[255,217,102], 142,146,[255,217,102],
+                            147,[255,217,102], 149,[255,217,102],
+                            150,[191,143,0], 151,[255,217,102],
+                            152,[255,255,255], 153,[191,143,0],
+                            154,[255,217,102], 156,164,[255,217,102],
+                            165,[255,217,102], 166,[191,143,0],
+                            167,169,[255,217,102], 169,[191,143,0],
+                            170,[255,217,102], 172,[255,217,102],
+                            174,179,[255,217,102], 181,[255,217,102],
+                            182,[191,143,0], 183,185,[255,217,102],
+                            185,[191,143,0], 186,[255,217,102],
+                            188,196,[255,217,102], 197,203,[191,143,0],
+                            204,213,[255,217,102], 219,256,[255,217,102]]}}
+                          id: simple-63ae
+                  - to:
+                      uri: paho:wled/{{mqtt.topic.sign}}/api
+                      id: to-f6ca
+                      parameters:
+                        brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                        retained: true
+              - id: when-099c
+                expression:
+                  simple:
+                    expression: ${body} == 'off'
+                    id: simple-0fe5
+                steps:
+                  - log:
+                      message: Empty Beer
+                      id: log-364e
+                  - setBody:
+                      id: setBody-3185
+                      expression:
+                        simple:
+                          expression: T=0
+                          id: simple-fa5a
+                  - to:
+                      uri: paho:wled/{{mqtt.topic.sign}}/api
+                      id: to-f83f
+                      parameters:
+                        brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                        retained: true
+                  - setBody:
+                      id: setBody-dd65
+                      expression:
+                        simple:
+                          expression: >-
+                            {"on":true, "bri":50, "seg":{"i":[
+                            0,100,[255,217,102], 101,107,[255,217,102],
+                            108,114,[255,217,102], 117,123,[255,217,102],
+                            124,132,[255,217,102], 133,139,[255,217,102],
+                            140,[255,217,102], 142,146,[255,217,102],
+                            147,[255,217,102], 149,155,[255,217,102],
+                            156,164,[255,217,102], 165,171,[255,217,102],
+                            172,[255,217,102], 174,179,[255,217,102],
+                            181,187,[255,217,102], 188,196,[255,217,102],
+                            197,199,[191,143,0], 199,202,[255,255,255],
+                            202,[191,143,0], 204,213,[255,217,102],
+                            219,256,[255,217,102]
+                                  ]}}
+                          id: simple-eaaa
+                  - to:
+                      uri: paho:wled/{{mqtt.topic.sign}}/api
+                      id: to-323c
+                      parameters:
+                        brokerUrl: tcp://{{mqtt.broker.ip}}:{{mqtt.broker.port}}
+                        retained: true
+            id: choice-b19d
+            precondition: false
